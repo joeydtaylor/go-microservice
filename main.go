@@ -29,9 +29,8 @@ func main() {
 			if auth.IsAdmin(r.Context()) {
 				log.Println("You are an admin!!!")
 			}
-			if auth.IsUser(r.Context(), "joeydtaylor@gmail.com") || auth.IsUser(r.Context(), "admin") {
-				log.Printf("You are the user %v!!!", auth.GetUser(r.Context()).Username)
-			}
+
+			log.Printf("You are the user %v!!!", auth.GetUser(r.Context()).Username)
 
 		} else {
 			log.Println("Whoops you are not authenticated!!!")

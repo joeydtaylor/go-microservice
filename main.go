@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
-	"github.com/joeydtaylor/go-microservice/session"
+	"github.com/joeydtaylor/go-microservice/auth"
 	"github.com/joho/godotenv"
 )
 
@@ -20,16 +20,21 @@ func main() {
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
+	r.Use(auth.Middleware())
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		if auth.IsAuthenticated(r.Context()) {
+			log.Println("You are authenticated!!!")
 
-		userContext, err := session.User{}.Get(r)
-		if err != nil {
-			log.Printf("%v", err)
-		}
+			if auth.IsAdmin(r.Context()) {
+				log.Println("You are an admin!!!")
+			}
+			if auth.IsUser(r.Context(), "joeydtaylor@gmail.com") || auth.IsUser(r.Context(), "admin") {
+				log.Printf("You are the user %v!!!", auth.GetUser(r.Context()).Username)
+			}
 
-		if (session.User{}.IsAuthorizedRole(r, []session.Role{{Name: os.Getenv("ADMIN_ROLE_NAME")}})) {
-			log.Println(userContext.Username, userContext.Role.Name, userContext.AuthenticationSource.Provider)
+		} else {
+			log.Println("Whoops you are not authenticated!!!")
 		}
 
 	})

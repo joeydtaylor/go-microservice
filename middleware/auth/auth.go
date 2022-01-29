@@ -45,6 +45,7 @@ func Middleware() func(http.Handler) http.Handler {
 
 			user, err := validateSession(cookie, r)
 			if err != nil {
+
 				log.Printf("%v", err)
 				http.Error(w, "Unauthorized", http.StatusForbidden)
 			}

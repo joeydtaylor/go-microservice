@@ -12,6 +12,7 @@ import (
 	"github.com/joeydtaylor/go-microservice/middleware/auth"
 	"github.com/joeydtaylor/go-microservice/middleware/logger"
 	"github.com/joho/godotenv"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -21,12 +22,15 @@ func main() {
 		log.Fatalf("Error loading .env file: %v", err)
 	}
 
+	l, _ := zap.NewProduction()
 	r := chi.NewRouter()
-	r.Use(auth.Middleware())
+
+	r.Use(middleware.RequestID)
 	r.Use(middleware.Heartbeat("/ping"))
 	r.Use(middleware.AllowContentType("application/json"))
-	r.Use(logger.NewStructuredLogger(&logger.Log))
 	r.Use(middleware.Recoverer)
+	r.Use(logger.Middleware(l))
+	r.Use(auth.Middleware())
 
 	if os.Getenv("DEFAULT_TIMEOUT_IN_SECONDS") != "" {
 		if defaultTimeout, err := strconv.Atoi(os.Getenv("DEFAULT_TIMEOUT_IN_SECONDS")); err == nil {

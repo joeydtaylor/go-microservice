@@ -2,8 +2,11 @@ package logger
 
 import (
 	"fmt"
+	"io"
+	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/middleware"
@@ -15,16 +18,28 @@ import (
 
 func NewLog() *zap.Logger {
 
+	logFileMaxSizeInMb, err := strconv.Atoi(os.Getenv("LOG_FILE_MAX_SIZE_IN_MB"))
+	if err != nil {
+		log.Panic(err)
+	}
+	logFileMaxBackups, err := strconv.Atoi(os.Getenv("LOG_FILE_MAX_BACKUPS"))
+	if err != nil {
+		log.Panic(err)
+	}
+	logFileMaxAgeInDays, err := strconv.Atoi(os.Getenv("LOG_FILE_MAX_AGE_IN_DAYS"))
+	if err != nil {
+		log.Panic(err)
+	}
+
 	cfg := zap.NewProductionEncoderConfig()
 	cfg.MessageKey = zapcore.OmitKey
-
 	consoleDebugging := zapcore.Lock(os.Stdout)
 
 	w := zapcore.AddSync(&lumberjack.Logger{
-		Filename:   string(os.Getenv("LOG_FILE_PATH")),
-		MaxSize:    500, // megabytes
-		MaxBackups: 3,
-		MaxAge:     28, // days
+		Filename:   fmt.Sprintf("%s\\%s", os.Getenv("LOG_DIRECTORY"), os.Getenv("LOG_FILE_NAME")),
+		MaxSize:    logFileMaxSizeInMb,
+		MaxBackups: logFileMaxBackups,
+		MaxAge:     logFileMaxAgeInDays,
 	})
 	core := zapcore.NewTee(zapcore.NewCore(
 		zapcore.NewJSONEncoder(cfg),
@@ -36,36 +51,52 @@ func NewLog() *zap.Logger {
 
 }
 
-func Middleware(l *zap.Logger) func(http.Handler) http.Handler {
+func Middleware(l *zap.Logger) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			var sessionCookie string
 
+			ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+			var sessionCookie string
 			cookie, err := r.Cookie(os.Getenv("SESSION_COOKIE_NAME"))
 			if err == nil {
 				sessionCookie = cookie.Value
 			}
-
 			scheme := "http"
 			if r.TLS != nil {
 				scheme = "https"
 			}
-			defer l.Sync()
+			startTime := time.Now()
+			defer r.Body.Close()
+			body, bodyReadErr := io.ReadAll(r.Body)
+			defer func() {
+				log := l.With(
+					zap.String("dateTime", startTime.UTC().Format(time.RFC1123)),
+					zap.String("requestId", middleware.GetReqID(r.Context())),
+					zap.String("httpScheme", scheme),
+					zap.Bool("isAuthenticated", auth.IsAuthenticated(r.Context())),
+					zap.String("sessionCookie", sessionCookie),
+					zap.String("username", string(auth.GetUser(r.Context()).Username)),
+					zap.String("role", string(auth.GetUser(r.Context()).Role.Name)),
+					zap.String("authenticationProvider", string(auth.GetUser(r.Context()).AuthenticationSource.Provider)),
+					zap.String("httpProto", r.Proto),
+					zap.String("httpMethod", r.Method),
+					zap.String("remoteAddr", r.RemoteAddr),
+					zap.String("uri", fmt.Sprintf("%s://%s%s", scheme, r.Host, r.RequestURI)),
+					zap.Duration("lat", time.Since(startTime)),
+					zap.Int("responseSize", ww.BytesWritten()),
+					zap.Int("status", ww.Status()))
 
-			l.Info("", zap.String("dateTime", time.Now().UTC().Format(time.RFC1123)),
-				zap.String("requestId", middleware.GetReqID(r.Context())),
-				zap.String("httpScheme", scheme),
-				zap.Bool("isAuthenticated", auth.IsAuthenticated(r.Context())),
-				zap.String("sessionCookie", sessionCookie),
-				zap.String("username", string(auth.GetUser(r.Context()).Username)),
-				zap.String("role", string(auth.GetUser(r.Context()).Role.Name)),
-				zap.String("authenticationProvider", string(auth.GetUser(r.Context()).AuthenticationSource.Provider)),
-				zap.String("httpProto", r.Proto),
-				zap.String("httpMethod", r.Method),
-				zap.String("remoteAddr", r.RemoteAddr),
-				zap.String("uri", fmt.Sprintf("%s://%s%s", scheme, r.Host, r.RequestURI)))
+				if r.Method == http.MethodPost {
+					log.Info("", zap.ByteString("requestData", body))
+				}
+				if bodyReadErr != nil {
+					log.Error("", zap.NamedError("Error", bodyReadErr))
+				}
+				log.Info("")
 
-			next.ServeHTTP(w, r)
+			}()
+
+			next.ServeHTTP(ww, r)
 
 		})
 	}

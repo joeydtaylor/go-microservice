@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -37,7 +39,16 @@ func main() {
 		}
 	}
 
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {})
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(time.Second * 1)
+		if auth.IsAuthenticated(r.Context()) {
+			w.WriteHeader(200)
+			json.NewEncoder(w).Encode(fmt.Sprintf("Hello %s", auth.GetUser(r.Context()).Username))
+		} else {
+			w.WriteHeader(403)
+			json.NewEncoder(w).Encode("Unauthorized")
+		}
+	})
 
 	if os.Getenv("SSL_SERVER_KEY") != "" && os.Getenv("SSL_SERVER_CERTIFICATE") != "" {
 		log.Printf("Server listening at https://%v", os.Getenv("SERVER_LISTEN_ADDRESS"))

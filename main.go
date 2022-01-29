@@ -4,6 +4,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
@@ -19,7 +21,19 @@ func main() {
 	}
 
 	r := chi.NewRouter()
+	r.Use(middleware.Heartbeat("/ping"))
+	r.Use(middleware.AllowContentType("application/json"))
+	r.Use(middleware.CleanPath)
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+
+	if os.Getenv("DEFAULT_TIMEOUT_IN_SECONDS") != "" {
+		if defaultTimeout, err := strconv.Atoi(os.Getenv("DEFAULT_TIMEOUT_IN_SECONDS")); err == nil {
+			r.Use(middleware.Timeout(time.Duration(defaultTimeout) * time.Second))
+		}
+	}
 	r.Use(auth.Middleware())
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {

@@ -9,7 +9,8 @@ import (
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
-	"github.com/joeydtaylor/go-microservice/auth"
+	"github.com/joeydtaylor/go-microservice/middleware/auth"
+	"github.com/joeydtaylor/go-microservice/middleware/logger"
 	"github.com/joho/godotenv"
 )
 
@@ -21,11 +22,10 @@ func main() {
 	}
 
 	r := chi.NewRouter()
+	r.Use(auth.Middleware())
 	r.Use(middleware.Heartbeat("/ping"))
 	r.Use(middleware.AllowContentType("application/json"))
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
+	r.Use(logger.NewStructuredLogger(&logger.Log))
 	r.Use(middleware.Recoverer)
 
 	if os.Getenv("DEFAULT_TIMEOUT_IN_SECONDS") != "" {
@@ -33,9 +33,9 @@ func main() {
 			r.Use(middleware.Timeout(time.Duration(defaultTimeout) * time.Second))
 		}
 	}
-	r.Use(auth.Middleware())
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+
 		if auth.IsAuthenticated(r.Context()) {
 			log.Println("You are authenticated!!!")
 

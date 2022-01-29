@@ -50,7 +50,9 @@ func Middleware() func(http.Handler) http.Handler {
 			}
 
 			ctx := context.WithValue(r.Context(), userCtxKey, user)
-			r = r.WithContext(ctx)
+			ctxWithLog := context.WithValue(ctx, contextKey{"LogEntry"}, user)
+			r = r.WithContext(ctxWithLog)
+
 			next.ServeHTTP(w, r)
 
 		})

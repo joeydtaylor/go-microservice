@@ -38,5 +38,12 @@ func main() {
 
 	})
 
-	log.Fatal(http.ListenAndServeTLS(os.Getenv("SERVER_LISTEN_ADDRESS"), os.Getenv("SSL_SERVER_CERTIFICATE"), os.Getenv("SSL_SERVER_KEY"), r))
+	if os.Getenv("SSL_SERVER_KEY") != "" && os.Getenv("SSL_SERVER_CERTIFICATE") != "" {
+		log.Printf("Server listening at https://%v", os.Getenv("SERVER_LISTEN_ADDRESS"))
+		log.Fatal(http.ListenAndServeTLS(os.Getenv("SERVER_LISTEN_ADDRESS"), os.Getenv("SSL_SERVER_CERTIFICATE"), os.Getenv("SSL_SERVER_KEY"), r))
+	} else {
+		log.Printf("Server listening at http://%v", os.Getenv("SERVER_LISTEN_ADDRESS"))
+		log.Fatal(http.ListenAndServe(os.Getenv("SERVER_LISTEN_ADDRESS"), r))
+	}
+
 }

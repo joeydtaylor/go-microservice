@@ -12,7 +12,6 @@ import (
 	"github.com/joeydtaylor/go-microservice/middleware/auth"
 	"github.com/joeydtaylor/go-microservice/middleware/logger"
 	"github.com/joho/godotenv"
-	"go.uber.org/zap"
 )
 
 func main() {
@@ -22,15 +21,15 @@ func main() {
 		log.Fatalf("Error loading .env file: %v", err)
 	}
 
-	l, _ := zap.NewProduction()
+	l := logger.NewLog()
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Heartbeat("/ping"))
 	r.Use(middleware.AllowContentType("application/json"))
 	r.Use(middleware.Recoverer)
-	r.Use(logger.Middleware(l))
 	r.Use(auth.Middleware())
+	r.Use(logger.Middleware(l))
 
 	if os.Getenv("DEFAULT_TIMEOUT_IN_SECONDS") != "" {
 		if defaultTimeout, err := strconv.Atoi(os.Getenv("DEFAULT_TIMEOUT_IN_SECONDS")); err == nil {
@@ -38,22 +37,7 @@ func main() {
 		}
 	}
 
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-
-		if auth.IsAuthenticated(r.Context()) {
-			log.Println("You are authenticated!!!")
-
-			if auth.IsAdmin(r.Context()) {
-				log.Println("You are an admin!!!")
-			}
-
-			log.Printf("You are the user %v!!!", auth.GetUser(r.Context()).Username)
-
-		} else {
-			log.Println("Whoops you are not authenticated!!!")
-		}
-
-	})
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {})
 
 	if os.Getenv("SSL_SERVER_KEY") != "" && os.Getenv("SSL_SERVER_CERTIFICATE") != "" {
 		log.Printf("Server listening at https://%v", os.Getenv("SERVER_LISTEN_ADDRESS"))

@@ -23,7 +23,6 @@ func main() {
 	r := chi.NewRouter()
 	r.Use(middleware.Heartbeat("/ping"))
 	r.Use(middleware.AllowContentType("application/json"))
-	r.Use(middleware.CleanPath)
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)

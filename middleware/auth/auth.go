@@ -98,16 +98,6 @@ func validateSession(c *http.Cookie, r *http.Request) (User, error) {
 
 }
 
-/* forContext finds the user from the context. REQUIRES Middleware to have run. Not exported, please see func GetUser(ctx context.Context) User  */
-func forContext(ctx context.Context) (User, bool) {
-	user, ok := ctx.Value(userCtxKey).(User)
-	if !ok {
-		return user, false
-	} else {
-		return user, true
-	}
-}
-
 /* Get user from context */
 func GetUser(ctx context.Context) User {
 	user, ok := ctx.Value(userCtxKey).(User)
@@ -120,7 +110,7 @@ func GetUser(ctx context.Context) User {
 
 /* Validate user is Role{ Name: "" } */
 func IsRole(ctx context.Context, role Role) bool {
-	if user, ok := forContext(ctx); ok && user.Role == role {
+	if user, ok := ctx.Value(userCtxKey).(User); ok && user.Role == role {
 		return true
 	} else {
 		return false
@@ -129,7 +119,7 @@ func IsRole(ctx context.Context, role Role) bool {
 
 /* Validate user is admin */
 func IsAdmin(ctx context.Context) bool {
-	if user, ok := forContext(ctx); ok && user.Role == (Role{Name: os.Getenv("ADMIN_ROLE_NAME")}) {
+	if user, ok := ctx.Value(userCtxKey).(User); ok && user.Role == (Role{Name: os.Getenv("ADMIN_ROLE_NAME")}) {
 		return true
 	} else {
 		return false
@@ -138,7 +128,7 @@ func IsAdmin(ctx context.Context) bool {
 
 /* Validate user is Username */
 func IsUser(ctx context.Context, u Username) bool {
-	if user, ok := forContext(ctx); ok && user.Username == u {
+	if user, ok := ctx.Value(userCtxKey).(User); ok && user.Username == u {
 		return true
 	} else {
 		return false
@@ -147,7 +137,7 @@ func IsUser(ctx context.Context, u Username) bool {
 
 /* Validate user is authenticated */
 func IsAuthenticated(ctx context.Context) bool {
-	if _, ok := forContext(ctx); ok {
+	if _, ok := ctx.Value(userCtxKey).(User); ok {
 		return true
 	} else {
 		return false

@@ -40,15 +40,16 @@ func main() {
 	}
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(time.Second * 1)
-		if auth.IsAuthenticated(r.Context()) {
+		time.Sleep(time.Second * 2)
+		if auth.IsAdmin(r.Context()) {
 			w.WriteHeader(200)
 			json.NewEncoder(w).Encode(fmt.Sprintf("Hello %s", auth.GetUser(r.Context()).Username))
 		} else {
-			w.WriteHeader(403)
+			w.WriteHeader(401)
 			json.NewEncoder(w).Encode("Unauthorized")
 		}
 	})
+	r.Handle("/metrics", logger.NewPromHttpHandler())
 
 	if os.Getenv("SSL_SERVER_KEY") != "" && os.Getenv("SSL_SERVER_CERTIFICATE") != "" {
 		log.Printf("Server listening at https://%v", os.Getenv("SERVER_LISTEN_ADDRESS"))

@@ -18,10 +18,8 @@ type AuthenticationSource struct {
 	Provider string `json:"provider"`
 }
 
-type Username string
-
 type User struct {
-	Username             Username             `json:"username"`
+	Username             string               `json:"username"`
 	AuthenticationSource AuthenticationSource `json:"authenticationSource"`
 	Role                 Role                 `json:"role"`
 }
@@ -127,7 +125,7 @@ func IsAdmin(ctx context.Context) bool {
 }
 
 /* Validate user is Username */
-func IsUser(ctx context.Context, u Username) bool {
+func IsUser(ctx context.Context, u string) bool {
 	if user, ok := ctx.Value(userCtxKey).(User); ok && user.Username == u {
 		return true
 	} else {

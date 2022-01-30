@@ -11,10 +11,67 @@ import (
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/joeydtaylor/go-microservice/middleware/auth"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
+
+var (
+	responseTime = prometheus.NewHistogram(
+		prometheus.HistogramOpts{
+			Name:    "response_time",
+			Help:    "http response time.",
+			Buckets: []float64{0.5, 1, 5, 10, 30, 60},
+		},
+	)
+
+	totalHttpRequestsFromUser = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "total_http_requests_from_user",
+		Help: "http requests from user, and remoteAddress.",
+	},
+		[]string{"user", "remoteAddress"})
+
+	totalHttpRequestsFromRole = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "total_http_requests_from_role",
+		Help: "http requests from role, and remoteAddress.",
+	},
+		[]string{"role", "remoteAddress"})
+
+	totalHttpRequestsFromRemoteAddress = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "total_http_requests_from_remote_address",
+		Help: "http requests from remote address",
+	},
+		[]string{"remoteAddress", "code"})
+
+	totalHttpRequestsToUri = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "total_http_requests_to_uri",
+		Help: "http requests from remote address",
+	},
+		[]string{"uri"})
+
+	totalHttpRequests = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "total_http_requests",
+		Help: "http requests by code, and method",
+	},
+		[]string{"code", "method"})
+)
+
+func init() {
+	prometheus.MustRegister(
+		responseTime,
+		totalHttpRequestsFromUser,
+		totalHttpRequestsFromRole,
+		totalHttpRequestsFromRemoteAddress,
+		totalHttpRequestsToUri,
+		totalHttpRequests,
+	)
+}
+
+func NewPromHttpHandler() http.Handler {
+	return promhttp.Handler()
+}
 
 func NewLog() *zap.Logger {
 
@@ -47,7 +104,9 @@ func NewLog() *zap.Logger {
 		zap.InfoLevel,
 	), zapcore.NewCore(zapcore.NewJSONEncoder(cfg), consoleDebugging, zap.InfoLevel))
 
-	return zap.New(core)
+	l := zap.New(core)
+
+	return l
 
 }
 
@@ -69,20 +128,23 @@ func Middleware(l *zap.Logger) func(next http.Handler) http.Handler {
 			defer r.Body.Close()
 			body, bodyReadErr := io.ReadAll(r.Body)
 			defer func() {
+
+				endTime := time.Since(startTime)
+
 				log := l.With(
 					zap.String("dateTime", startTime.UTC().Format(time.RFC1123)),
 					zap.String("requestId", middleware.GetReqID(r.Context())),
 					zap.String("httpScheme", scheme),
 					zap.Bool("isAuthenticated", auth.IsAuthenticated(r.Context())),
 					zap.String("sessionCookie", sessionCookie),
-					zap.String("username", string(auth.GetUser(r.Context()).Username)),
-					zap.String("role", string(auth.GetUser(r.Context()).Role.Name)),
+					zap.String("username", auth.GetUser(r.Context()).Username),
+					zap.String("role", auth.GetUser(r.Context()).Role.Name),
 					zap.String("authenticationProvider", string(auth.GetUser(r.Context()).AuthenticationSource.Provider)),
 					zap.String("httpProto", r.Proto),
 					zap.String("httpMethod", r.Method),
 					zap.String("remoteAddr", r.RemoteAddr),
 					zap.String("uri", fmt.Sprintf("%s://%s%s", scheme, r.Host, r.RequestURI)),
-					zap.Duration("lat", time.Since(startTime)),
+					zap.Duration("lat", endTime),
 					zap.Int("responseSize", ww.BytesWritten()),
 					zap.Int("status", ww.Status()))
 
@@ -91,8 +153,16 @@ func Middleware(l *zap.Logger) func(next http.Handler) http.Handler {
 				}
 				if bodyReadErr != nil {
 					log.Error("", zap.NamedError("Error", bodyReadErr))
+					ww.WriteHeader(500)
 				}
 				log.Info("")
+
+				totalHttpRequestsFromRemoteAddress.With(prometheus.Labels{"remoteAddress": r.RemoteAddr, "code": strconv.Itoa(ww.Status())}).Inc()
+				totalHttpRequestsFromUser.With(prometheus.Labels{"user": auth.GetUser(r.Context()).Username, "remoteAddress": r.RemoteAddr}).Inc()
+				totalHttpRequestsFromRole.With(prometheus.Labels{"role": auth.GetUser(r.Context()).Role.Name, "remoteAddress": r.RemoteAddr}).Inc()
+				totalHttpRequestsToUri.With(prometheus.Labels{"uri": fmt.Sprintf("%s://%s%s", scheme, r.Host, r.RequestURI)}).Inc()
+				totalHttpRequests.With(prometheus.Labels{"code": strconv.Itoa(ww.Status()), "method": r.Method}).Inc()
+				responseTime.Observe(endTime.Seconds())
 
 			}()
 

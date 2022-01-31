@@ -27,27 +27,15 @@ var (
 		},
 	)
 
-	totalHttpRequestsFromUser = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "total_http_requests_from_user",
-		Help: "http requests from user, and remoteAddress.",
-	},
-		[]string{"user", "remoteAddress"})
-
 	totalHttpRequestsFromRole = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "total_http_requests_from_role",
-		Help: "http requests from role, and remoteAddress.",
+		Help: "http requests from role",
 	},
-		[]string{"role", "remoteAddress"})
-
-	totalHttpRequestsFromRemoteAddress = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name: "total_http_requests_from_remote_address",
-		Help: "http requests from remote address",
-	},
-		[]string{"remoteAddress", "code"})
+		[]string{"role"})
 
 	totalHttpRequestsToUri = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "total_http_requests_to_uri",
-		Help: "http requests from remote address",
+		Help: "http requests to uri",
 	},
 		[]string{"uri"})
 
@@ -61,9 +49,7 @@ var (
 func init() {
 	prometheus.MustRegister(
 		responseTime,
-		totalHttpRequestsFromUser,
 		totalHttpRequestsFromRole,
-		totalHttpRequestsFromRemoteAddress,
 		totalHttpRequestsToUri,
 		totalHttpRequests,
 	)
@@ -157,9 +143,7 @@ func Middleware(l *zap.Logger) func(next http.Handler) http.Handler {
 				}
 				log.Info("")
 
-				totalHttpRequestsFromRemoteAddress.With(prometheus.Labels{"remoteAddress": r.RemoteAddr, "code": strconv.Itoa(ww.Status())}).Inc()
-				totalHttpRequestsFromUser.With(prometheus.Labels{"user": auth.GetUser(r.Context()).Username, "remoteAddress": r.RemoteAddr}).Inc()
-				totalHttpRequestsFromRole.With(prometheus.Labels{"role": auth.GetUser(r.Context()).Role.Name, "remoteAddress": r.RemoteAddr}).Inc()
+				totalHttpRequestsFromRole.With(prometheus.Labels{"role": auth.GetUser(r.Context()).Role.Name}).Inc()
 				totalHttpRequestsToUri.With(prometheus.Labels{"uri": fmt.Sprintf("%s://%s%s", scheme, r.Host, r.RequestURI)}).Inc()
 				totalHttpRequests.With(prometheus.Labels{"code": strconv.Itoa(ww.Status()), "method": r.Method}).Inc()
 				responseTime.Observe(endTime.Seconds())

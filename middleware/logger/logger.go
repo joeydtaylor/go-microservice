@@ -37,7 +37,7 @@ var (
 		Name: "total_http_requests_to_uri",
 		Help: "http requests to uri",
 	},
-		[]string{"uri"})
+		[]string{"code", "uri", "method"})
 
 	totalHttpRequests = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "total_http_requests",
@@ -144,7 +144,7 @@ func Middleware(l *zap.Logger) func(next http.Handler) http.Handler {
 				log.Info("")
 
 				totalHttpRequestsFromRole.With(prometheus.Labels{"role": auth.GetUser(r.Context()).Role.Name}).Inc()
-				totalHttpRequestsToUri.With(prometheus.Labels{"uri": fmt.Sprintf("%s://%s%s", scheme, r.Host, r.RequestURI)}).Inc()
+				totalHttpRequestsToUri.With(prometheus.Labels{"code": strconv.Itoa(ww.Status()), "uri": fmt.Sprintf("%s://%s%s", scheme, r.Host, r.RequestURI), "method": r.Method}).Inc()
 				totalHttpRequests.With(prometheus.Labels{"code": strconv.Itoa(ww.Status()), "method": r.Method}).Inc()
 				responseTime.Observe(endTime.Seconds())
 

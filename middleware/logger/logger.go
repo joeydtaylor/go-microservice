@@ -143,10 +143,14 @@ func Middleware(l *zap.Logger) func(next http.Handler) http.Handler {
 				}
 				log.Info("")
 
-				totalHttpRequestsFromRole.With(prometheus.Labels{"role": auth.GetUser(r.Context()).Role.Name}).Inc()
-				totalHttpRequestsToUri.With(prometheus.Labels{"code": strconv.Itoa(ww.Status()), "uri": fmt.Sprintf("%s://%s%s", scheme, r.Host, r.RequestURI), "method": r.Method}).Inc()
-				totalHttpRequests.With(prometheus.Labels{"code": strconv.Itoa(ww.Status()), "method": r.Method}).Inc()
-				responseTime.Observe(endTime.Seconds())
+				if r.RequestURI != "/metrics" {
+					defer func() {
+						totalHttpRequestsFromRole.With(prometheus.Labels{"role": auth.GetUser(r.Context()).Role.Name}).Inc()
+						totalHttpRequestsToUri.With(prometheus.Labels{"code": strconv.Itoa(ww.Status()), "uri": fmt.Sprintf("%s://%s%s", scheme, r.Host, r.RequestURI), "method": r.Method}).Inc()
+						totalHttpRequests.With(prometheus.Labels{"code": strconv.Itoa(ww.Status()), "method": r.Method}).Inc()
+						responseTime.Observe(endTime.Seconds())
+					}()
+				}
 
 			}()
 

@@ -46,6 +46,10 @@ var (
 		[]string{"code", "method"})
 )
 
+func NewPromHttpHandler() http.Handler {
+	return promhttp.Handler()
+}
+
 func init() {
 	prometheus.MustRegister(
 		responseTime,
@@ -53,10 +57,6 @@ func init() {
 		totalHttpRequestsToUri,
 		totalHttpRequests,
 	)
-}
-
-func NewPromHttpHandler() http.Handler {
-	return promhttp.Handler()
 }
 
 func NewLog() *zap.Logger {
@@ -96,9 +96,10 @@ func NewLog() *zap.Logger {
 
 }
 
-func Middleware(l *zap.Logger) func(next http.Handler) http.Handler {
+func Request() func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			l := NewLog()
 
 			ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
 			var sessionCookie string

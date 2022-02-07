@@ -10,6 +10,7 @@ import (
 	"github.com/joeydtaylor/go-microservice/handlers"
 	"github.com/joeydtaylor/go-microservice/middleware/auth"
 	"github.com/joeydtaylor/go-microservice/middleware/logger"
+	"github.com/joeydtaylor/go-microservice/middleware/metrics"
 )
 
 func NewRouter() *chi.Mux {
@@ -26,10 +27,11 @@ func NewRouter() *chi.Mux {
 	r.Use(middleware.AllowContentType("application/json"))
 	r.Use(middleware.Recoverer)
 	r.Use(auth.Middleware())
+	r.Use(metrics.Collect())
 	r.Use(logger.Request())
 
 	r.Get("/", handlers.GetIndex)
-	r.Handle("/metrics", logger.NewPromHttpHandler())
+	r.Handle("/metrics", metrics.NewPromHttpHandler())
 
 	return r
 }

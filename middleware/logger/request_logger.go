@@ -3,43 +3,39 @@ package logger
 import (
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/joeydtaylor/go-microservice/middleware/auth"
 	"github.com/joeydtaylor/go-microservice/utils"
+	"go.uber.org/fx"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-func NewLog() *zap.Logger {
+type Middleware struct{}
 
-	logFileMaxSizeInMb, err := strconv.Atoi(os.Getenv("LOG_FILE_MAX_SIZE_IN_MB"))
-	if err != nil {
-		log.Panic(err)
-	}
-	logFileMaxBackups, err := strconv.Atoi(os.Getenv("LOG_FILE_MAX_BACKUPS"))
-	if err != nil {
-		log.Panic(err)
-	}
-	logFileMaxAgeInDays, err := strconv.Atoi(os.Getenv("LOG_FILE_MAX_AGE_IN_DAYS"))
-	if err != nil {
-		log.Panic(err)
-	}
+func ProvideLoggerMiddleware() Middleware {
+	return Middleware{}
+}
+
+func ProvideLogger() *zap.Logger {
+	return NewLog("system.log")
+}
+
+func NewLog(n string) *zap.Logger {
 
 	cfg := zap.NewProductionEncoderConfig()
 	cfg.MessageKey = zapcore.OmitKey
 	consoleDebugging := zapcore.Lock(os.Stdout)
 
 	w := zapcore.AddSync(&lumberjack.Logger{
-		Filename:   fmt.Sprintf("%s\\%s", os.Getenv("LOG_DIRECTORY"), os.Getenv("LOG_FILE_NAME")),
-		MaxSize:    logFileMaxSizeInMb,
-		MaxBackups: logFileMaxBackups,
-		MaxAge:     logFileMaxAgeInDays,
+		Filename:   fmt.Sprintf("%s\\%s", "log", n),
+		MaxSize:    50,
+		MaxBackups: 3,
+		MaxAge:     7,
 	})
 	core := zapcore.NewTee(zapcore.NewCore(
 		zapcore.NewJSONEncoder(cfg),
@@ -53,10 +49,10 @@ func NewLog() *zap.Logger {
 
 }
 
-func Request() func(next http.Handler) http.Handler {
+func (Middleware) Middleware(ca auth.Middleware) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			l := NewLog()
+			l := NewLog("http-access.log")
 
 			ww := utils.NewWrapResponseWriter(w, r.ProtoMajor)
 			var sessionCookie string
@@ -79,11 +75,11 @@ func Request() func(next http.Handler) http.Handler {
 					zap.String("dateTime", startTime.UTC().Format(time.RFC1123)),
 					zap.String("requestId", utils.GetReqID(r.Context())),
 					zap.String("httpScheme", scheme),
-					zap.Bool("isAuthenticated", auth.IsAuthenticated(r.Context())),
+					zap.Bool("isAuthenticated", ca.IsAuthenticated(r.Context())),
 					zap.String("sessionCookie", sessionCookie),
-					zap.String("username", auth.GetUser(r.Context()).Username),
-					zap.String("role", auth.GetUser(r.Context()).Role.Name),
-					zap.String("authenticationProvider", string(auth.GetUser(r.Context()).AuthenticationSource.Provider)),
+					zap.String("username", ca.GetUser(r.Context()).Username),
+					zap.String("role", ca.GetUser(r.Context()).Role.Name),
+					zap.String("authenticationProvider", string(ca.GetUser(r.Context()).AuthenticationSource.Provider)),
 					zap.String("httpProto", r.Proto),
 					zap.String("httpMethod", r.Method),
 					zap.String("remoteAddr", r.RemoteAddr),
@@ -108,3 +104,8 @@ func Request() func(next http.Handler) http.Handler {
 		})
 	}
 }
+
+var Module = fx.Options(
+	fx.Provide(ProvideLoggerMiddleware),
+	fx.Provide(ProvideLogger),
+)

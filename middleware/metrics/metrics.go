@@ -10,6 +10,7 @@ import (
 	"github.com/joeydtaylor/go-microservice/middleware/auth"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"go.uber.org/fx"
 )
 
 var (
@@ -40,7 +41,7 @@ var (
 		[]string{"code", "method"})
 )
 
-func Collect() func(next http.Handler) http.Handler {
+func Collect(ca auth.Middleware) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
@@ -57,7 +58,7 @@ func Collect() func(next http.Handler) http.Handler {
 
 				if r.RequestURI != "/metrics" {
 					defer func() {
-						totalHttpRequestsFromRole.With(prometheus.Labels{"role": auth.GetUser(r.Context()).Role.Name}).Inc()
+						totalHttpRequestsFromRole.With(prometheus.Labels{"role": ca.GetUser(r.Context()).Role.Name}).Inc()
 						totalHttpRequestsToUri.With(prometheus.Labels{"code": strconv.Itoa(ww.Status()), "uri": fmt.Sprintf("%s://%s%s", scheme, r.Host, r.RequestURI), "method": r.Method}).Inc()
 						totalHttpRequests.With(prometheus.Labels{"code": strconv.Itoa(ww.Status()), "method": r.Method}).Inc()
 						responseTime.Observe(endTime.Seconds())
@@ -76,6 +77,10 @@ func NewPromHttpHandler() http.Handler {
 	return promhttp.Handler()
 }
 
+func ProvideMetrics() http.Handler {
+	return NewPromHttpHandler()
+}
+
 func init() {
 	prometheus.MustRegister(
 		responseTime,
@@ -84,3 +89,7 @@ func init() {
 		totalHttpRequests,
 	)
 }
+
+var Module = fx.Options(
+	fx.Provide(ProvideMetrics),
+)

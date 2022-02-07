@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"os"
 	"time"
+
+	"go.uber.org/fx"
 )
 
 type Role struct {
@@ -30,8 +32,14 @@ type contextKey struct {
 	name string
 }
 
+type Middleware struct{}
+
+func ProvideAuthentication() Middleware {
+	return Middleware{}
+}
+
 // Middleware decodes the share session cookie, gets userContext and packs the session into context
-func Middleware() func(http.Handler) http.Handler {
+func (Middleware) Middleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
@@ -97,7 +105,7 @@ func validateSession(c *http.Cookie, r *http.Request) (User, error) {
 }
 
 /* Get user from context */
-func GetUser(ctx context.Context) User {
+func (Middleware) GetUser(ctx context.Context) User {
 	user, ok := ctx.Value(userCtxKey).(User)
 	if !ok {
 		return User{}
@@ -107,7 +115,7 @@ func GetUser(ctx context.Context) User {
 }
 
 /* Validate user is Role{ Name: "" } */
-func IsRole(ctx context.Context, role Role) bool {
+func (Middleware) IsRole(ctx context.Context, role Role) bool {
 	if user, ok := ctx.Value(userCtxKey).(User); ok && user.Role == role {
 		return true
 	} else {
@@ -116,7 +124,7 @@ func IsRole(ctx context.Context, role Role) bool {
 }
 
 /* Validate user is admin */
-func IsAdmin(ctx context.Context) bool {
+func (Middleware) IsAdmin(ctx context.Context) bool {
 	if user, ok := ctx.Value(userCtxKey).(User); ok && user.Role == (Role{Name: os.Getenv("ADMIN_ROLE_NAME")}) {
 		return true
 	} else {
@@ -125,7 +133,7 @@ func IsAdmin(ctx context.Context) bool {
 }
 
 /* Validate user is Username */
-func IsUser(ctx context.Context, u string) bool {
+func (Middleware) IsUser(ctx context.Context, u string) bool {
 	if user, ok := ctx.Value(userCtxKey).(User); ok && user.Username == u {
 		return true
 	} else {
@@ -134,10 +142,14 @@ func IsUser(ctx context.Context, u string) bool {
 }
 
 /* Validate user is authenticated */
-func IsAuthenticated(ctx context.Context) bool {
+func (Middleware) IsAuthenticated(ctx context.Context) bool {
 	if _, ok := ctx.Value(userCtxKey).(User); ok {
 		return true
 	} else {
 		return false
 	}
 }
+
+var Module = fx.Options(
+	fx.Provide(ProvideAuthentication),
+)

@@ -1,21 +1,21 @@
 package router
 
 import (
+	"net/http"
 	"os"
 	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
-	"github.com/joeydtaylor/go-microservice/handlers"
 	"github.com/joeydtaylor/go-microservice/middleware/auth"
 	"github.com/joeydtaylor/go-microservice/middleware/logger"
 	"github.com/joeydtaylor/go-microservice/middleware/metrics"
+	"go.uber.org/fx"
 )
 
-func NewRouter() *chi.Mux {
+func ProvideRouter(l logger.Middleware, a auth.Middleware, m http.Handler) *chi.Mux {
 	r := chi.NewRouter()
-
 	if os.Getenv("DEFAULT_TIMEOUT_IN_SECONDS") != "" {
 		if defaultTimeout, err := strconv.Atoi(os.Getenv("DEFAULT_TIMEOUT_IN_SECONDS")); err == nil {
 			r.Use(middleware.Timeout(time.Duration(defaultTimeout) * time.Second))
@@ -26,12 +26,14 @@ func NewRouter() *chi.Mux {
 	r.Use(middleware.Heartbeat("/ping"))
 	r.Use(middleware.AllowContentType("application/json"))
 	r.Use(middleware.Recoverer)
-	r.Use(auth.Middleware())
-	r.Use(metrics.Collect())
-	r.Use(logger.Request())
-
-	r.Get("/", handlers.GetIndex)
-	r.Handle("/metrics", metrics.NewPromHttpHandler())
+	r.Use(a.Middleware())
+	r.Use(metrics.Collect(a))
+	r.Use(l.Middleware(a))
+	r.Handle("/metrics", m)
 
 	return r
 }
+
+var Module = fx.Options(
+	fx.Provide(ProvideRouter),
+)

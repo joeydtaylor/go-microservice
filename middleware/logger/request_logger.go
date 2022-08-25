@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"runtime"
 	"time"
 
 	"github.com/joeydtaylor/go-microservice/middleware/auth"
@@ -30,9 +31,16 @@ func NewLog(n string) *zap.Logger {
 	cfg := zap.NewProductionEncoderConfig()
 	cfg.MessageKey = zapcore.OmitKey
 	consoleDebugging := zapcore.Lock(os.Stdout)
+	var logPath string
+
+	if runtime.GOOS == "windows" {
+		logPath = fmt.Sprintf("%s\\%s", "log", n)
+	} else {
+		logPath = fmt.Sprintf("%s/%s", "log", n)
+	}
 
 	w := zapcore.AddSync(&lumberjack.Logger{
-		Filename:   fmt.Sprintf("%s\\%s", "log", n),
+		Filename:   logPath,
 		MaxSize:    50,
 		MaxBackups: 3,
 		MaxAge:     7,

@@ -11,6 +11,7 @@ require (
 	github.com/prometheus/client_golang v1.12.1
 	go.uber.org/fx v1.16.0
 	go.uber.org/zap v1.20.0
+	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 
@@ -26,7 +27,6 @@ require (
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/dig v1.12.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
-	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde // indirect
 	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9 // indirect
 	google.golang.org/protobuf v1.26.0 // indirect
 )

@@ -1,8 +1,10 @@
 package controllers
 
 import (
-	"log"
+	"fmt"
 	"net/http"
+
+	"github.com/joeydtaylor/go-microservice/middleware/auth"
 )
 
 func Index(w http.ResponseWriter, r *http.Request) {
@@ -19,6 +21,14 @@ func RoleProtectedPage(w http.ResponseWriter, r *http.Request) {
 
 func AdminProtectedPage(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Hello, from the AdminProtectedPage Controller!"))
-	userContext := r.Context().Value("username")
-	log.Println(userContext)
+}
+
+func UserProtectedPage(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("Hello, from the UserProtectedNameController!"))
+}
+
+func GetUserPage(w http.ResponseWriter, r *http.Request) {
+	user := auth.ProvideAuthentication().GetUser(r.Context())
+	response := fmt.Sprintf("Hello %s, from the GetUserPage! You authenticated via %s and your role is %s!", user.Username, user.AuthenticationSource.Provider, user.Role.Name)
+	w.Write([]byte(response))
 }

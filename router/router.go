@@ -29,18 +29,26 @@ func RoleProtectedRoute(h http.HandlerFunc, roleName string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if auth.ProvideAuthentication().IsRole(r.Context(), auth.Role{Name: roleName}) || auth.ProvideAuthentication().IsAdmin(r.Context()) {
 			h(w, r)
-		} else {
+		}
+		if auth.ProvideAuthentication().IsAuthenticated(r.Context()) && (!auth.ProvideAuthentication().IsRole(r.Context(), auth.Role{Name: roleName}) && !auth.ProvideAuthentication().IsAdmin(r.Context())) {
 			w.Write([]byte("Forbidden"))
+		}
+		if !auth.ProvideAuthentication().IsAuthenticated(r.Context()) {
+			w.Write([]byte("Unauthorized"))
 		}
 	}
 }
 
 func AdminProtectedRoute(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if auth.ProvideAuthentication().IsRole(r.Context(), auth.Role{Name: os.Getenv("ADMIN_ROLE_NAME")}) {
+		if auth.ProvideAuthentication().IsAdmin(r.Context()) {
 			h(w, r)
-		} else {
+		}
+		if auth.ProvideAuthentication().IsAuthenticated(r.Context()) && !auth.ProvideAuthentication().IsAdmin(r.Context()) {
 			w.Write([]byte("Forbidden"))
+		}
+		if !auth.ProvideAuthentication().IsAuthenticated(r.Context()) {
+			w.Write([]byte("Unauthorized"))
 		}
 	}
 }
@@ -49,8 +57,12 @@ func UserProtectedRoute(h http.HandlerFunc, username string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if auth.ProvideAuthentication().IsUser(r.Context(), username) || auth.ProvideAuthentication().IsAdmin(r.Context()) {
 			h(w, r)
-		} else {
+		}
+		if auth.ProvideAuthentication().IsAuthenticated(r.Context()) && (!auth.ProvideAuthentication().IsUser(r.Context(), username) && !auth.ProvideAuthentication().IsAdmin(r.Context())) {
 			w.Write([]byte("Forbidden"))
+		}
+		if !auth.ProvideAuthentication().IsAuthenticated(r.Context()) {
+			w.Write([]byte("Unauthorized"))
 		}
 	}
 }
@@ -75,6 +87,8 @@ func ProvideRouter(l logger.Middleware, a auth.Middleware, m http.Handler) *chi.
 	r.Get("/protectedPage", ProtectedRoute(controllers.ProtectedPage))
 	r.Get("/roleProtectedPage", RoleProtectedRoute(controllers.RoleProtectedPage, os.Getenv("DEVELOPER_ROLE_NAME")))
 	r.Get("/adminProtectedPage", AdminProtectedRoute(controllers.AdminProtectedPage))
+	r.Get("/userProtectedPage", UserProtectedRoute(controllers.UserProtectedPage, "joeydtaylor@gmail.com"))
+	r.Get("/getUserPage", ProtectedRoute(controllers.GetUserPage))
 
 	return r
 }

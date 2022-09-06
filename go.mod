@@ -1,6 +1,6 @@
 module github.com/joeydtaylor/go-microservice
 
-go 1.17
+go 1.18
 
 require github.com/go-chi/chi/v5 v5.0.7
 
@@ -26,6 +26,7 @@ require (
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/dig v1.12.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
+	golang.org/x/sync v0.0.0-20220819030929-7fc1605a5dde // indirect
 	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9 // indirect
 	google.golang.org/protobuf v1.26.0 // indirect
 )
